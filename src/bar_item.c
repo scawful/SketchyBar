@@ -200,7 +200,7 @@ void bar_item_on_drag(struct bar_item* bar_item, CGPoint point) {
   }
 }
 
-void bar_item_on_click(struct bar_item* bar_item, uint32_t type, uint32_t mouse_button_code, uint32_t modifier, CGPoint point) {
+void bar_item_on_click(struct bar_item* bar_item, uint32_t type, uint32_t mouse_button_code, uint32_t modifier, CGPoint point, uint32_t adid) {
   if (!bar_item) return;
 
   struct env_vars env_vars;
@@ -226,6 +226,16 @@ void bar_item_on_click(struct bar_item* bar_item, uint32_t type, uint32_t mouse_
   env_vars_set(&env_vars,
                string_copy("MODIFIER"),
                string_copy(get_modifier_description(modifier)));
+
+  if (adid > 0) {
+    char adid_str[16];
+    snprintf(adid_str, sizeof(adid_str), "%u", adid);
+    env_vars_set(&env_vars, string_copy("BAR_DISPLAY"), string_copy(adid_str));
+    snprintf(adid_str, sizeof(adid_str), "%u", g_bar_manager.active_adid);
+    env_vars_set(&env_vars,
+                 string_copy("ACTIVE_DISPLAY"),
+                 string_copy(adid_str)          );
+  }
 
   if (bar_item->has_slider) {
     if (bar_item->slider.is_dragged
