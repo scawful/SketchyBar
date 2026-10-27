@@ -1,4 +1,5 @@
 #include "message.h"
+#include "profile.h"
 #include "app_windows.h"
 #include "bar_manager.h"
 #include "misc/defines.h"
@@ -596,6 +597,19 @@ static void handle_domain_order(FILE* rsp, struct token domain, char* message) {
 void handle_message_mach(struct mach_buffer* buffer) {
   if (!buffer->message.descriptor.address) return;
   char* message = buffer->message.descriptor.address;
+  bool profile = profile_enabled();
+  uint64_t profile_start = 0;
+  char profile_summary[96] = { 0 };
+  if (profile) {
+    profile_start = profile_now_ns();
+    profile_reset_counters();
+    uint32_t message_size = buffer->message.descriptor.size;
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < message_size && n < sizeof(profile_summary) - 1; i++) {
+      char c = message[i];
+      profile_summary[n++] = c ? c : ' ';
+    }
+  }
   char* response = NULL;
   size_t length = 0;
   FILE* rsp = open_memstream(&response, &length);
@@ -762,9 +776,13 @@ void handle_message_mach(struct mach_buffer* buffer) {
     g_bar_manager.bar_needs_update = true;
   }
 
+  uint64_t profile_parsed = profile ? profile_now_ns() : 0;
   animator_lock(&g_bar_manager.animator);
   bar_manager_unfreeze(&g_bar_manager);
-  bar_manager_refresh(&g_bar_manager, false, false);
+  // Each item draw blocks on a WindowServer backing-store round trip, so
+  // render on the same worker threads the animator already uses.
+  bar_manager_refresh(&g_bar_manager, false, true);
+  uint64_t profile_refreshed = profile ? profile_now_ns() : 0;
 
   if (rsp) fclose(rsp);
 
@@ -773,6 +791,20 @@ void handle_message_mach(struct mach_buffer* buffer) {
                                                              length + 1,
                                                              false      );
   if (response) free(response);
+
+  if (profile) {
+    uint64_t profile_end = profile_now_ns();
+    fprintf(stderr,
+            "[profile] total=%.1fms parse=%.1fms refresh=%.1fms draws=%u "
+            "creates=%u closes=%u msg=%s\n",
+            (profile_end - profile_start) / 1e6,
+            (profile_parsed - profile_start) / 1e6,
+            (profile_refreshed - profile_parsed) / 1e6,
+            g_profile_item_draws,
+            g_profile_window_creates,
+            g_profile_window_closes,
+            profile_summary);
+  }
 }
 
 MACH_HANDLER(mach_message_handler) {

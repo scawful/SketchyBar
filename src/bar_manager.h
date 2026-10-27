@@ -25,6 +25,7 @@ struct bar_manager {
   bool needs_ordering;
   bool might_need_clipping;
   bool bar_needs_update;
+  bool popup_visibility_changed;
   bool bar_needs_resize;
   bool show_in_fullscreen;
 

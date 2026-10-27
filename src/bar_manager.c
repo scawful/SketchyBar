@@ -345,6 +345,7 @@ uint32_t bar_manager_length_for_bar_side(struct bar_manager* bar_manager, struct
 
 bool bar_manager_bar_needs_redraw(struct bar_manager* bar_manager, struct bar* bar) {
   if (bar_manager->bar_needs_update) return true;
+  if (bar_manager->popup_visibility_changed) return true;
 
   uint32_t bar_mask = 1 << bar->adid;
   for (int i = 0; i < bar_manager->bar_item_count; i++) {
@@ -416,6 +417,7 @@ void bar_manager_clear_needs_update(struct bar_manager* bar_manager) {
 
   bar_manager->needs_ordering = false;
   bar_manager->bar_needs_update = false;
+  bar_manager->popup_visibility_changed = false;
 }
 
 void bar_manager_reset_bar_association(struct bar_manager* bar_manager) {

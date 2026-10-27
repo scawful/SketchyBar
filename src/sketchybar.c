@@ -40,6 +40,9 @@ extern int RunApplicationEventLoop(void);
 
 int g_connection;
 CFTypeRef g_transaction;
+uint32_t g_profile_item_draws;
+uint32_t g_profile_window_creates;
+uint32_t g_profile_window_closes;
 int g_space_management_mode;
 
 struct bar_manager g_bar_manager;
