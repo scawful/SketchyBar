@@ -75,7 +75,7 @@ def main():
         if toggle is None:
             continue
         latency = toggle - t
-        bucket = next(label for limit, label in IDLE_BUCKETS if idle_s < limit)
+        bucket = next(label for limit, label in IDLE_BUCKETS if idle_s <= limit)
         click_latency[bucket].append(latency)
         if f.get("adid") != f.get("active"):
             cross_display.append(latency)

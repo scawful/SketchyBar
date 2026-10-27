@@ -42,6 +42,7 @@ void popup_clear_pointers(struct popup* popup);
 uint32_t popup_get_width(struct popup* popup);
 void popup_calculate_bounds(struct popup* popup, struct bar* bar);
 void popup_draw(struct popup* popup);
+uint32_t popup_prewarm(struct popup* popup, uint32_t budget);
 void popup_destroy(struct popup* popup);
 
 void popup_change_space(struct popup* popup, uint64_t dsid, uint32_t adid);

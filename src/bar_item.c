@@ -729,12 +729,31 @@ void bar_item_clip_bar(struct bar_item* bar_item, int offset, struct bar* bar) {
   background_clip_bar(&bar_item->label.background, offset, bar);
 }
 
+void bar_item_render(struct bar_item* bar_item, struct window* window) {
+  if (!profile_enabled()) {
+    CGContextClearRect(window->context, window->frame);
+    bar_item_draw(bar_item, window->context);
+    CGContextFlush(window->context);
+    window_flush(window);
+    return;
+  }
+
+  uint64_t start = profile_now_ns();
+  CGContextClearRect(window->context, window->frame);
+  uint64_t cleared = profile_now_ns();
+  bar_item_draw(bar_item, window->context);
+  uint64_t painted = profile_now_ns();
+  CGContextFlush(window->context);
+  window_flush(window);
+  uint64_t flushed = profile_now_ns();
+  g_profile_clear_ns += cleared - start;
+  g_profile_paint_ns += painted - cleared;
+  g_profile_flush_ns += flushed - painted;
+}
+
 void* draw_item_proc(void* context) {
   struct { struct window* window; struct bar_item bar_item; }* info = context;
-  CGContextClearRect(info->window->context, info->window->frame);
-  bar_item_draw(&info->bar_item, info->window->context);
-  CGContextFlush(info->window->context);
-  window_flush(info->window);
+  bar_item_render(&info->bar_item, info->window);
   free(context);
   return NULL;
 }

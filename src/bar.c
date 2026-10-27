@@ -216,10 +216,7 @@ void bar_draw(struct bar* bar, bool forced, bool threaded) {
                      draw_item_proc,
                      context        );
     } else {
-      CGContextClearRect(window->context, window->frame);
-      bar_item_draw(bar_item, window->context);
-      CGContextFlush(window->context);
-      window_flush(window);
+      bar_item_render(bar_item, window);
     }
   }
 

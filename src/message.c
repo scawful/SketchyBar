@@ -791,9 +791,10 @@ void handle_message_mach(struct mach_buffer* buffer) {
   uint64_t profile_parsed = profile ? profile_now_ns() : 0;
   animator_lock(&g_bar_manager.animator);
   bar_manager_unfreeze(&g_bar_manager);
-  // Each item draw blocks on a WindowServer backing-store round trip, so
-  // render on the same worker threads the animator already uses.
-  bar_manager_refresh(&g_bar_manager, false, true);
+  // Serial on purpose: threaded item draws contend on the WindowServer
+  // connection and measured slower (bench/dirty_open_bench.sh).
+  bar_manager_refresh(&g_bar_manager, false, false);
+  bar_manager_prewarm_popups(&g_bar_manager);
   uint64_t profile_refreshed = profile ? profile_now_ns() : 0;
 
   if (rsp) fclose(rsp);
@@ -807,11 +808,15 @@ void handle_message_mach(struct mach_buffer* buffer) {
   if (profile) {
     uint64_t profile_end = profile_now_ns();
     profile_log("kind=msg total=%.1fms parse=%.1fms refresh=%.1fms draws=%u "
+                "clear=%.1fms paint=%.1fms flush=%.1fms "
                 "creates=%u closes=%u popup=%s msg=%s",
                 (profile_end - profile_start) / 1e6,
                 (profile_parsed - profile_start) / 1e6,
                 (profile_refreshed - profile_parsed) / 1e6,
                 g_profile_item_draws,
+                g_profile_clear_ns / 1e6,
+                g_profile_paint_ns / 1e6,
+                g_profile_flush_ns / 1e6,
                 g_profile_window_creates,
                 g_profile_window_closes,
                 profile_toggle,

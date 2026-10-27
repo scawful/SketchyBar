@@ -451,6 +451,16 @@ void bar_manager_refresh(struct bar_manager* bar_manager, bool forced, bool thre
   if (threaded) join_render_threads();
 }
 
+#define PREWARM_ROWS_PER_MESSAGE 12
+
+void bar_manager_prewarm_popups(struct bar_manager* bar_manager) {
+  if (bar_manager->frozen || bar_manager->sleeps) return;
+  uint32_t budget = PREWARM_ROWS_PER_MESSAGE;
+  for (int i = 0; i < bar_manager->bar_item_count && budget > 0; i++) {
+    budget -= popup_prewarm(&bar_manager->bar_items[i]->popup, budget);
+  }
+}
+
 void bar_manager_resize(struct bar_manager* bar_manager) {
   for (int i = 0; i < bar_manager->bar_count; ++i)
     bar_resize(bar_manager->bars[i]);

@@ -14,6 +14,10 @@
 extern uint32_t g_profile_item_draws;
 extern uint32_t g_profile_window_creates;
 extern uint32_t g_profile_window_closes;
+// Summed across render threads, so they can exceed the message's wall time.
+extern _Atomic uint64_t g_profile_clear_ns;
+extern _Atomic uint64_t g_profile_paint_ns;
+extern _Atomic uint64_t g_profile_flush_ns;
 
 #define PROFILE_TRACE_MAX_BYTES (50LL * 1024 * 1024)
 
@@ -49,6 +53,9 @@ static inline void profile_reset_counters(void) {
   g_profile_item_draws = 0;
   g_profile_window_creates = 0;
   g_profile_window_closes = 0;
+  g_profile_clear_ns = 0;
+  g_profile_paint_ns = 0;
+  g_profile_flush_ns = 0;
 }
 
 __attribute__((format(printf, 1, 2)))

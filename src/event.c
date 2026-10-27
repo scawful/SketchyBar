@@ -451,6 +451,13 @@ void event_post(struct event *event) {
   }
 
   event_handler[event->type](event->context);
+  uint64_t commit_start = profile_enabled() ? profile_now_ns() : 0;
   windows_unfreeze();
+  if (commit_start) {
+    double committed = (profile_now_ns() - commit_start) / 1e6;
+    if (committed > 2.0) {
+      profile_log("kind=commit type=%d commit=%.1fms", event->type, committed);
+    }
+  }
   pthread_mutex_unlock(&event_mutex);
 }
