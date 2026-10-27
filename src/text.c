@@ -84,6 +84,19 @@ static void text_prepare_line(struct text* text) {
 
   text->width = text->bounds.size.width;
 
+  // Glyph path bounds ignore leading whitespace, but CTLineDraw still
+  // advances past it, so count it to keep the label from being clipped.
+  if (text->width > 0) {
+    CFIndex leading = 0;
+    while (text->string[leading] == ' ') leading++;
+    if (leading > 0) {
+      text->width += (uint32_t)(CTLineGetOffsetForStringIndex(text->line.line,
+                                                              leading,
+                                                              NULL      )
+                                + 0.5);
+    }
+  }
+
   CFRelease(string);
   CFRelease(attr_string);
 
