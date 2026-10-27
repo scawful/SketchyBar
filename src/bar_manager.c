@@ -10,11 +10,24 @@
 #include "mouse.h"
 #include "media.h"
 #include "app_windows.h"
+#include "profile.h"
 
 extern void forced_front_app_event();
 
 static CLOCK_CALLBACK(clock_handler) {
   struct event event = { NULL, SHELL_REFRESH };
+  event_post(&event);
+}
+
+// Prewarm runs as its own event once messages go quiet: inside a message it
+// delayed that message's commit, so visible updates waited on hidden rows.
+#define PREWARM_ROWS_PER_PASS 12
+#define PREWARM_IDLE_DELAY 0.2
+#define PREWARM_MAX_DELAY 1.0
+#define PREWARM_NEVER 1e9
+
+static CLOCK_CALLBACK(prewarm_handler) {
+  struct event event = { NULL, POPUP_PREWARM };
   event_post(&event);
 }
 
@@ -75,6 +88,20 @@ void bar_manager_init(struct bar_manager* bar_manager) {
 
   CFRunLoopAddTimer(CFRunLoopGetMain(),
                     bar_manager->clock,
+                    kCFRunLoopCommonModes);
+
+  bar_manager->prewarm_deadline = 0;
+  bar_manager->prewarm_timer = CFRunLoopTimerCreate(NULL,
+                                                    CFAbsoluteTimeGetCurrent()
+                                                    + PREWARM_NEVER,
+                                                    PREWARM_NEVER,
+                                                    0,
+                                                    0,
+                                                    prewarm_handler,
+                                                    NULL                    );
+
+  CFRunLoopAddTimer(CFRunLoopGetMain(),
+                    bar_manager->prewarm_timer,
                     kCFRunLoopCommonModes);
 }
 
@@ -451,14 +478,32 @@ void bar_manager_refresh(struct bar_manager* bar_manager, bool forced, bool thre
   if (threaded) join_render_threads();
 }
 
-#define PREWARM_ROWS_PER_MESSAGE 12
+void bar_manager_schedule_prewarm(struct bar_manager* bar_manager) {
+  CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+  if (bar_manager->prewarm_deadline == 0) {
+    bar_manager->prewarm_deadline = now + PREWARM_MAX_DELAY;
+  }
+  CFAbsoluteTime fire = now + PREWARM_IDLE_DELAY;
+  if (fire > bar_manager->prewarm_deadline) {
+    fire = bar_manager->prewarm_deadline;
+  }
+  CFRunLoopTimerSetNextFireDate(bar_manager->prewarm_timer, fire);
+}
 
 void bar_manager_prewarm_popups(struct bar_manager* bar_manager) {
+  bar_manager->prewarm_deadline = 0;
   if (bar_manager->frozen || bar_manager->sleeps) return;
-  uint32_t budget = PREWARM_ROWS_PER_MESSAGE;
+  uint64_t start = profile_enabled() ? profile_now_ns() : 0;
+  uint32_t budget = PREWARM_ROWS_PER_PASS;
   for (int i = 0; i < bar_manager->bar_item_count && budget > 0; i++) {
     budget -= popup_prewarm(&bar_manager->bar_items[i]->popup, budget);
   }
+  if (start && budget < PREWARM_ROWS_PER_PASS) {
+    profile_log("kind=prewarm rows=%u prewarm=%.1fms",
+                PREWARM_ROWS_PER_PASS - budget,
+                (profile_now_ns() - start) / 1e6);
+  }
+  if (budget == 0) bar_manager_schedule_prewarm(bar_manager);
 }
 
 void bar_manager_resize(struct bar_manager* bar_manager) {
@@ -1130,6 +1175,13 @@ void bar_manager_destroy(struct bar_manager* bar_manager) {
 
   CFRunLoopTimerInvalidate(bar_manager->clock);
   CFRelease(bar_manager->clock);
+
+  CFRunLoopRemoveTimer(CFRunLoopGetMain(),
+                       bar_manager->prewarm_timer,
+                       kCFRunLoopCommonModes);
+
+  CFRunLoopTimerInvalidate(bar_manager->prewarm_timer);
+  CFRelease(bar_manager->prewarm_timer);
   image_destroy(&bar_manager->current_artwork);
 }
 

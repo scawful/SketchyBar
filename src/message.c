@@ -794,7 +794,7 @@ void handle_message_mach(struct mach_buffer* buffer) {
   // Serial on purpose: threaded item draws contend on the WindowServer
   // connection and measured slower (bench/dirty_open_bench.sh).
   bar_manager_refresh(&g_bar_manager, false, false);
-  bar_manager_prewarm_popups(&g_bar_manager);
+  bar_manager_schedule_prewarm(&g_bar_manager);
   uint64_t profile_refreshed = profile ? profile_now_ns() : 0;
 
   if (rsp) fclose(rsp);
