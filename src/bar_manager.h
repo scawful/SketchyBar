@@ -37,6 +37,8 @@ struct bar_manager {
   uint32_t notch_offset;
   uint32_t notch_display_height;
   uint32_t active_adid;
+  uint32_t held_adid;
+  uint64_t held_adid_deadline_ns;
   uint32_t window_level;
 
   struct bar** bars;
@@ -108,6 +110,7 @@ void bar_manager_refresh(struct bar_manager* bar_manager, bool forced);
 void bar_manager_resize(struct bar_manager* bar_manager);
 
 void bar_manager_poll_active_display(struct bar_manager* bar_manager);
+void bar_manager_hold_active_display(struct bar_manager* bar_manager, uint32_t adid);
 void bar_manager_handle_mouse_entered_global(struct bar_manager* bar_manager);
 void bar_manager_handle_mouse_exited_global(struct bar_manager* bar_manager);
 void bar_manager_handle_mouse_scrolled_global(struct bar_manager* bar_manager, int scroll_delta, uint32_t did, uint32_t modifier);

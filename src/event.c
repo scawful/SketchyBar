@@ -95,11 +95,26 @@ static void event_mouse_up(void* context) {
     point_in_window_coords.y = point.y - window->origin.y;
   }
 
+  uint32_t clicked_adid = 0;
+  if (popup) clicked_adid = popup->adid;
+  else if (bar) clicked_adid = bar->adid;
+  else if (bar_item && window) {
+    for (uint32_t i = 0; i < bar_item->num_windows; i++) {
+      if (bar_item->windows[i] == window) {
+        clicked_adid = i + 1;
+        break;
+      }
+    }
+  }
+
   bar_item_on_click(bar_item,
                     type,
                     mouse_button_code,
                     modifier_keys,
-                    point_in_window_coords);
+                    point_in_window_coords,
+                    clicked_adid           );
+
+  if (bar_item && !popup) bar_manager_hold_active_display(&g_bar_manager, clicked_adid);
 
   if (bar_item && bar_item->needs_update)
     bar_manager_refresh(&g_bar_manager, false);

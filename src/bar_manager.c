@@ -994,15 +994,40 @@ void bar_manager_handle_space_change(struct bar_manager* bar_manager, bool force
   env_vars_destroy(&env_vars);
 }
 
+// A click on another display's bar moves popups there right away; hold that
+// display until macOS catches up (the click script focuses it) or the hold
+// expires, so polling does not snap popups back to the old display.
+void bar_manager_hold_active_display(struct bar_manager* bar_manager, uint32_t adid) {
+  if (adid == 0 || adid == bar_manager->active_adid) return;
+  bar_manager->active_adid = adid;
+  bar_manager->held_adid = adid;
+  bar_manager->held_adid_deadline_ns = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+                                       + 1000000000ULL;
+}
+
+static bool bar_manager_active_display_held(struct bar_manager* bar_manager, uint32_t aadid) {
+  if (!bar_manager->held_adid) return false;
+  if (aadid != bar_manager->held_adid
+      && clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+         < bar_manager->held_adid_deadline_ns) {
+    return true;
+  }
+  bar_manager->held_adid = 0;
+  return false;
+}
+
 void bar_manager_poll_active_display(struct bar_manager* bar_manager) {
   uint32_t aadid = display_active_display_adid();
+  if (bar_manager_active_display_held(bar_manager, aadid)) return;
   if (aadid != bar_manager->active_adid) {
     bar_manager_handle_display_change(bar_manager);
   }
 }
 
 void bar_manager_handle_display_change(struct bar_manager* bar_manager) {
-  bar_manager->active_adid = display_active_display_adid();
+  uint32_t aadid = display_active_display_adid();
+  if (bar_manager_active_display_held(bar_manager, aadid)) return;
+  bar_manager->active_adid = aadid;
   struct env_vars env_vars;
   env_vars_init(&env_vars);
   char adid_str[3];
