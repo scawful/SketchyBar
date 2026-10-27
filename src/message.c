@@ -600,6 +600,7 @@ void handle_message_mach(struct mach_buffer* buffer) {
   bool profile = profile_enabled();
   uint64_t profile_start = 0;
   char profile_summary[96] = { 0 };
+  char profile_toggle[64] = "-";
   if (profile) {
     profile_start = profile_now_ns();
     profile_reset_counters();
@@ -608,6 +609,17 @@ void handle_message_mach(struct mach_buffer* buffer) {
     for (uint32_t i = 0; i < message_size && n < sizeof(profile_summary) - 1; i++) {
       char c = message[i];
       profile_summary[n++] = c ? c : ' ';
+    }
+    const char* previous = NULL;
+    for (uint32_t i = 0; i < message_size; ) {
+      const char* token = message + i;
+      size_t token_length = strnlen(token, message_size - i);
+      if (strncmp(token, "popup.drawing=", 14) == 0 && previous
+          && strcmp(token + 14, "off") != 0) {
+        snprintf(profile_toggle, sizeof(profile_toggle), "%s", previous);
+      }
+      previous = token;
+      i += token_length + 1;
     }
   }
   char* response = NULL;
@@ -794,16 +806,16 @@ void handle_message_mach(struct mach_buffer* buffer) {
 
   if (profile) {
     uint64_t profile_end = profile_now_ns();
-    fprintf(stderr,
-            "[profile] total=%.1fms parse=%.1fms refresh=%.1fms draws=%u "
-            "creates=%u closes=%u msg=%s\n",
-            (profile_end - profile_start) / 1e6,
-            (profile_parsed - profile_start) / 1e6,
-            (profile_refreshed - profile_parsed) / 1e6,
-            g_profile_item_draws,
-            g_profile_window_creates,
-            g_profile_window_closes,
-            profile_summary);
+    profile_log("kind=msg total=%.1fms parse=%.1fms refresh=%.1fms draws=%u "
+                "creates=%u closes=%u popup=%s msg=%s",
+                (profile_end - profile_start) / 1e6,
+                (profile_parsed - profile_start) / 1e6,
+                (profile_refreshed - profile_parsed) / 1e6,
+                g_profile_item_draws,
+                g_profile_window_creates,
+                g_profile_window_closes,
+                profile_toggle,
+                profile_summary);
   }
 }
 

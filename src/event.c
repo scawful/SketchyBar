@@ -2,6 +2,7 @@
 #include "bar_manager.h"
 #include "custom_events.h"
 #include "hotload.h"
+#include "profile.h"
 
 extern struct bar_manager g_bar_manager;
 extern int g_connection;
@@ -16,11 +17,24 @@ static void event_application_front_switched(void* context) {
 }
 
 static void event_space_changed(void* context) {
+  uint64_t start = profile_enabled() ? profile_now_ns() : 0;
   bar_manager_handle_space_change(&g_bar_manager, false);
+  if (start) {
+    profile_log("kind=space_change handler=%.1fms active=%u",
+                (profile_now_ns() - start) / 1e6,
+                g_bar_manager.active_adid);
+  }
 }
 
 static void event_display_changed(void* context) {
+  uint64_t start = profile_enabled() ? profile_now_ns() : 0;
   bar_manager_handle_display_change(&g_bar_manager);
+  if (start) {
+    profile_log("kind=display_change handler=%.1fms active=%u held=%u",
+                (profile_now_ns() - start) / 1e6,
+                g_bar_manager.active_adid,
+                g_bar_manager.held_adid);
+  }
 }
 
 static void event_display_added(void* context) {
@@ -113,6 +127,13 @@ static void event_mouse_up(void* context) {
                     modifier_keys,
                     point_in_window_coords,
                     clicked_adid           );
+
+  if (profile_enabled()) {
+    profile_log("kind=click item=%s adid=%u active=%u",
+                bar_item ? bar_item->name : "-",
+                clicked_adid,
+                g_bar_manager.active_adid);
+  }
 
   if (bar_item && !popup) bar_manager_hold_active_display(&g_bar_manager, clicked_adid);
 
@@ -416,7 +437,14 @@ void event_post(struct event *event) {
     }
     if (locked != 0) return;
   } else {
+    uint64_t wait_start = profile_enabled() ? profile_now_ns() : 0;
     pthread_mutex_lock(&event_mutex);
+    if (wait_start) {
+      double waited = (profile_now_ns() - wait_start) / 1e6;
+      if (waited > 2.0) {
+        profile_log("kind=lock_wait type=%d wait=%.1fms", event->type, waited);
+      }
+    }
     if (g_space_management_mode != 1) {
       bar_manager_poll_active_display(&g_bar_manager);
     }
