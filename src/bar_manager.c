@@ -55,6 +55,7 @@ void bar_manager_init(struct bar_manager* bar_manager) {
   bar_manager->notch_offset = 0;
   bar_manager->notch_display_height = 0;
   bar_manager->active_adid = display_active_display_adid();
+  bar_manager->space_change_adid = 0;
   bar_manager->might_need_clipping = false;
 
   bar_manager->sticky = true;
@@ -1000,7 +1001,7 @@ void bar_manager_handle_space_windows_change(struct bar_manager* bar_manager, ch
   env_vars_destroy(&env_vars);
 }
 
-void bar_manager_handle_space_change(struct bar_manager* bar_manager, bool forced) {
+bool bar_manager_handle_space_change(struct bar_manager* bar_manager, bool forced) {
   struct env_vars env_vars;
   env_vars_init(&env_vars);
   char info[19 * bar_manager->bar_count + 4];
@@ -1010,18 +1011,23 @@ void bar_manager_handle_space_change(struct bar_manager* bar_manager, bool force
   char separator[] = ",";
   bar_manager_freeze(bar_manager);
   bool force_refresh = false;
+  bool changed = forced;
   for (int i = 0; i < bar_manager->bar_count; i++) {
     uint64_t dsid = display_space_id(bar_manager->bars[i]->did);
-    bar_manager->bars[i]->sid = mission_control_index(dsid);
+    uint32_t sid = mission_control_index(dsid);
+    changed |= bar_manager->bars[i]->sid != sid;
+    bar_manager->bars[i]->sid = sid;
 
     bool was_shown = bar_manager->bars[i]->shown;
     bar_manager->bars[i]->shown = SLSSpaceGetType(g_connection, dsid) != 4 || bar_manager->show_in_fullscreen;
+    changed |= was_shown != bar_manager->bars[i]->shown;
 
     bar_manager->needs_ordering |= !was_shown && bar_manager->bars[i]->shown;
     force_refresh |= !was_shown && bar_manager->bars[i]->shown;
     force_refresh |= !bar_manager->bars[i]->shown && was_shown;
 
     if (bar_manager->bars[i]->dsid != dsid) {
+      changed = true;
       bar_manager->bars[i]->dsid = dsid;
       if (!bar_manager->sticky && bar_manager->bars[i]->shown)
         bar_change_space(bar_manager->bars[i], dsid);
@@ -1037,6 +1043,17 @@ void bar_manager_handle_space_change(struct bar_manager* bar_manager, bool force
     cursor = strlen(info);
   }
 
+  // macOS posts several active-space notifications per switch. Scripts only
+  // need the ones that change a display's space or the focused display.
+  uint32_t active_adid = display_active_display_adid();
+  changed |= active_adid != bar_manager->space_change_adid;
+  bar_manager->space_change_adid = active_adid;
+  if (!changed) {
+    bar_manager_unfreeze(bar_manager);
+    env_vars_destroy(&env_vars);
+    return false;
+  }
+
   info[cursor] = '}';
   info[cursor + 1] = '\0';
   env_vars_set(&env_vars, string_copy("INFO"), string_copy(info));
@@ -1050,6 +1067,7 @@ void bar_manager_handle_space_change(struct bar_manager* bar_manager, bool force
   bar_manager_unfreeze(bar_manager);
   bar_manager_refresh(bar_manager, force_refresh, false);
   env_vars_destroy(&env_vars);
+  return true;
 }
 
 // A click on another display's bar moves popups there right away; hold that

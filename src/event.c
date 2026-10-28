@@ -18,11 +18,12 @@ static void event_application_front_switched(void* context) {
 
 static void event_space_changed(void* context) {
   uint64_t start = profile_enabled() ? profile_now_ns() : 0;
-  bar_manager_handle_space_change(&g_bar_manager, false);
+  bool changed = bar_manager_handle_space_change(&g_bar_manager, false);
   if (start) {
-    profile_log("kind=space_change handler=%.1fms active=%u",
+    profile_log("kind=space_change handler=%.1fms active=%u skipped=%d",
                 (profile_now_ns() - start) / 1e6,
-                g_bar_manager.active_adid);
+                g_bar_manager.active_adid,
+                !changed);
   }
 }
 

@@ -40,6 +40,7 @@ struct bar_manager {
   uint32_t notch_offset;
   uint32_t notch_display_height;
   uint32_t active_adid;
+  uint32_t space_change_adid;
   uint32_t held_adid;
   uint64_t held_adid_deadline_ns;
   uint32_t window_level;
@@ -122,7 +123,7 @@ void bar_manager_handle_mouse_scrolled_global(struct bar_manager* bar_manager, i
 void bar_manager_handle_mouse_entered(struct bar_manager* bar_manager, struct bar_item* bar_item);
 void bar_manager_handle_mouse_exited(struct bar_manager* bar_manager, struct bar_item* bar_item);
 void bar_manager_handle_front_app_switch(struct bar_manager* bar_manager, char* info);
-void bar_manager_handle_space_change(struct bar_manager* bar_manager, bool forced);
+bool bar_manager_handle_space_change(struct bar_manager* bar_manager, bool forced);
 void bar_manager_handle_display_change(struct bar_manager* bar_manager);
 void bar_manager_handle_system_woke(struct bar_manager* bar_manager);
 void bar_manager_handle_system_will_sleep(struct bar_manager* bar_manager);
