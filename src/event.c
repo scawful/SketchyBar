@@ -17,7 +17,14 @@ static void event_application_front_switched(void* context) {
 }
 
 static void event_space_changed(void* context) {
-  bar_manager_handle_space_change(&g_bar_manager, false);
+  uint64_t start = profile_enabled() ? profile_now_ns() : 0;
+  bool changed = bar_manager_handle_space_change(&g_bar_manager, false);
+  if (start) {
+    profile_log("kind=space_change handler=%.1fms active=%u skipped=%d",
+                (profile_now_ns() - start) / 1e6,
+                g_bar_manager.active_adid,
+                !changed);
+  }
 }
 
 static void event_display_changed(void* context) {
