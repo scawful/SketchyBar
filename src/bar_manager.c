@@ -21,7 +21,9 @@ static CLOCK_CALLBACK(clock_handler) {
 
 // Prewarm runs as its own event once messages go quiet: inside a message it
 // delayed that message's commit, so visible updates waited on hidden rows.
-#define PREWARM_ROWS_PER_PASS 12
+// A row costs ~12 ms. Clients stop waiting for a reply after 100 ms, so a
+// pass must stay well under that or their queries come back empty.
+#define PREWARM_ROWS_PER_PASS 3
 #define PREWARM_IDLE_DELAY 0.2
 #define PREWARM_MAX_DELAY 1.0
 #define PREWARM_NEVER 1e9
