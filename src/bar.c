@@ -125,18 +125,20 @@ static void bar_check_for_clip_updates(struct bar* bar) {
   if (!g_bar_manager.bar_needs_update) {
     for (int i = 0; i < g_bar_manager.bar_item_count; i++) {
       struct bar_item* bar_item = g_bar_manager.bar_items[i];
-      struct window* window = bar_item_get_window(bar_item, bar->adid);
-
       bool clips_bar = bar_item_clips_bar(bar_item);
       if (!clips_bar || (!bar_draws_item(bar, bar_item))) {
-
-        if (clips_bar && !CGPointEqualToPoint(window->origin, g_nirvana)) {
+        struct window* window = bar_item_existing_window(bar_item, bar->adid);
+        if (clips_bar
+            && window
+            && !CGPointEqualToPoint(window->origin, g_nirvana)) {
           g_bar_manager.bar_needs_update = true;
           break;
         }
 
         continue;
       }
+
+      struct window* window = bar_item_get_window(bar_item, bar->adid);
 
       g_bar_manager.bar_needs_update
                        |= window->needs_move
@@ -166,16 +168,19 @@ void bar_draw(struct bar* bar, bool forced) {
 
   for (int i = 0; i < g_bar_manager.bar_item_count; i++) {
     struct bar_item* bar_item = g_bar_manager.bar_items[i];
-    struct window* window = bar_item_get_window(bar_item, bar->adid);
-
     if (!bar_draws_item(bar, bar_item)){
-      if (!CGPointEqualToPoint(window->origin, g_nirvana)) {
+      // Items hidden on this bar (e.g. closed popup rows) get no window here;
+      // creating one per display costs a WindowServer round trip each.
+      struct window* window = bar_item_existing_window(bar_item, bar->adid);
+      if (window && !CGPointEqualToPoint(window->origin, g_nirvana)) {
         window_move(window, g_nirvana);
       }
 
       bar_item_remove_associated_bar(bar_item, bar->adid);
       continue;
     }
+
+    struct window* window = bar_item_get_window(bar_item, bar->adid);
 
     bar_item_append_associated_bar(bar_item, bar->adid);
 

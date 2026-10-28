@@ -582,6 +582,11 @@ struct window* bar_item_get_window(struct bar_item* bar_item, uint32_t adid) {
   return bar_item->windows[adid - 1];
 }
 
+struct window* bar_item_existing_window(struct bar_item* bar_item, uint32_t adid) {
+  if (adid < 1 || !bar_item || bar_item->num_windows < adid) return NULL;
+  return bar_item->windows[adid - 1];
+}
+
 void bar_item_remove_window(struct bar_item* bar_item, uint32_t adid) {
   if (bar_item->num_windows >= adid && bar_item->windows[adid - 1]) {
     window_destroy(bar_item->windows[adid - 1]);

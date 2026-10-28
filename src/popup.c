@@ -384,12 +384,14 @@ static struct bar* popup_bar_for_adid(uint32_t adid) {
 // opened are kept warm, and at most `budget` rows are painted per call so a
 // forced refresh spreads its repaint over later passes. Returns rows painted.
 uint32_t popup_prewarm(struct popup* popup, uint32_t budget) {
-  if (popup->drawing || popup->num_items == 0 || popup->adid < 1) return 0;
+  if (popup->drawing || popup->num_items == 0) return 0;
   if (popup == &g_bar_manager.default_item.popup || !popup->host) return 0;
 
-  uint32_t adid = popup->adid;
+  // Popups that never opened have no rows yet; warm them on the active display.
+  uint32_t adid = popup->adid ? popup->adid : g_bar_manager.active_adid;
   struct bar* bar = popup_bar_for_adid(adid);
   if (!bar || !bar->shown || bar->hidden) return 0;
+  if (!bar_draws_item(bar, popup->host)) return 0;
 
   bool dirty = false;
   for (int i = 0; i < popup->num_items; i++) {
