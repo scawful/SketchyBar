@@ -25,6 +25,7 @@ struct bar_item {
   // Update Modifiers
   uint32_t counter;
   bool needs_update;
+  bool needs_redraw_on_show;
   bool updates;
   bool updates_only_when_shown;
   bool lazy;

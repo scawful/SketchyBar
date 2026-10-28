@@ -327,11 +327,17 @@ void popup_clear_pointers(struct popup* popup) {
   window_clear(&popup->window);
 }
 
+// Closing parks the popup window off-screen instead of releasing it, and the
+// display association survives, so reopening on the same display only moves
+// windows; rows changed while hidden are redrawn via needs_redraw_on_show.
+// Visibility alone does not change the host's appearance, so the host is not
+// marked for redraw; the bar manager only re-runs layout.
 bool popup_set_drawing(struct popup* popup, bool drawing) {
   if (popup->drawing == drawing) return false;
-  if (!drawing) popup_close_window(popup);
+  if (!drawing && popup->window.id) window_move(&popup->window, g_nirvana);
+  if (drawing) popup->needs_ordering = true;
   popup->drawing = drawing;
-  popup->adid = 0;
+  g_bar_manager.popup_visibility_changed = true;
   return true;
 }
 
@@ -339,27 +345,104 @@ void popup_draw(struct popup* popup) {
   if (!popup->drawing || popup->adid < 1 || popup->num_items == 0) return;
 
   windows_freeze();
-  if (!popup->window.id) popup_create_window(popup);
+  bool created = !popup->window.id;
+  if (created) popup_create_window(popup);
 
-  if (!window_apply_frame(&popup->window, false) && !popup->host->needs_update)
-    return;
+  bool reshaped = window_apply_frame(&popup->window, false);
+  if (created || reshaped || popup->host->needs_update) {
+    CGContextRef context = popup->window.surface->context;
+    CGContextClearRect(context, popup->background.bounds);
 
-  CGContextClearRect(popup->window.surface->context, popup->background.bounds);
+    window_assign_mouse_tracking_area(&popup->window, popup->window.frame);
 
-  window_assign_mouse_tracking_area(&popup->window, popup->window.frame);
+    bool shadow = popup->background.shadow.enabled;
+    popup->background.shadow.enabled = false;
+    background_draw(&popup->background, context);
+    popup->background.shadow.enabled = shadow;
 
-  bool shadow = popup->background.shadow.enabled;
-  popup->background.shadow.enabled = false;
-  background_draw(&popup->background, popup->window.surface->context);
-  popup->background.shadow.enabled = shadow;
-
-  CGContextFlush(popup->window.surface->context);
-  window_flush(&popup->window);
+    CGContextFlush(context);
+    window_flush(&popup->window);
+  }
 
   if (popup->needs_ordering) {
     popup_order_windows(popup);
     popup->needs_ordering = false;
   }
+}
+
+static struct bar* popup_bar_for_adid(uint32_t adid) {
+  for (int i = 0; i < g_bar_manager.bar_count; i++) {
+    if (g_bar_manager.bars[i]->adid == adid) return g_bar_manager.bars[i];
+  }
+  return NULL;
+}
+
+// Rows rewritten while their popup is closed (a space-change script updating
+// a header, say) are repainted here while parked off-screen, sized exactly as
+// an open would size them, so the next open on that display only moves
+// windows instead of repainting on the click path. Only popups that have been
+// opened are kept warm, and at most `budget` rows are painted per call so a
+// forced refresh spreads its repaint over later passes. Returns rows painted.
+uint32_t popup_prewarm(struct popup* popup, uint32_t budget) {
+  if (popup->drawing || popup->num_items == 0 || popup->adid < 1) return 0;
+  if (popup == &g_bar_manager.default_item.popup || !popup->host) return 0;
+
+  uint32_t adid = popup->adid;
+  struct bar* bar = popup_bar_for_adid(adid);
+  if (!bar || !bar->shown || bar->hidden) return 0;
+
+  bool dirty = false;
+  for (int i = 0; i < popup->num_items; i++) {
+    struct bar_item* bar_item = popup->items[i];
+    if (bar_item->popup.drawing) return 0;
+    if (bar_item->drawing
+        && bar_item->type != BAR_COMPONENT_GROUP
+        && bar_item->needs_redraw_on_show) {
+      dirty = true;
+    }
+  }
+  if (!dirty) return 0;
+
+  struct window* host_window = bar_item_get_window(popup->host, adid);
+  if (!popup->overrides_cell_size) {
+    popup->cell_size = (g_bar_manager.position == POSITION_LEFT
+                        || g_bar_manager.position == POSITION_RIGHT)
+                       ? host_window->frame.size.width
+                       : host_window->frame.size.height;
+  }
+
+  CGPoint anchor = popup->anchor;
+  CGPoint background_origin = popup->window.origin;
+  bool background_needs_move = popup->window.needs_move;
+  popup->anchor = g_nirvana;
+  popup_calculate_bounds(popup, bar);
+  popup->anchor = anchor;
+  popup->window.origin = background_origin;
+  popup->window.needs_move = background_needs_move;
+
+  uint32_t painted = 0;
+  for (int i = 0; i < popup->num_items; i++) {
+    struct bar_item* bar_item = popup->items[i];
+    struct window* window = bar_item_get_window(bar_item, adid);
+    window->origin = g_nirvana;
+    window->needs_move = false;
+    if (painted >= budget
+        || !bar_item->drawing
+        || bar_item->type == BAR_COMPONENT_GROUP
+        || !bar_item->needs_redraw_on_show) {
+      continue;
+    }
+
+    bool resized = window_apply_frame(window, false);
+    if (bar_item->update_mask & UPDATE_MOUSE_ENTERED
+        || bar_item->update_mask & UPDATE_MOUSE_EXITED) {
+      window_assign_mouse_tracking_area(window, window->frame);
+    }
+    bar_item_render(bar_item, window, !resized);
+    bar_item->needs_redraw_on_show = false;
+    painted++;
+  }
+  return painted;
 }
 
 void popup_change_space(struct popup* popup, uint64_t dsid, uint32_t adid) {
@@ -368,7 +451,7 @@ void popup_change_space(struct popup* popup, uint64_t dsid, uint32_t adid) {
     bar_item_change_space(bar_item, dsid, adid);
   }
 
-  if (popup->drawing) {
+  if (popup->window.id) {
     window_send_to_space(&popup->window, dsid);
   }
 }
@@ -456,9 +539,9 @@ bool popup_parse_sub_domain(struct popup* popup, FILE* rsp, struct token propert
   if (token_equals(property, PROPERTY_YOFFSET)) {
     ANIMATE(popup_set_yoffset, popup, popup->y_offset, token_to_int(get_token(&message)));
   } else if (token_equals(property, PROPERTY_DRAWING)) {
-    return popup_set_drawing(popup,
-                             evaluate_boolean_state(get_token(&message),
-                             popup->drawing)                            );
+    popup_set_drawing(popup, evaluate_boolean_state(get_token(&message),
+                                                    popup->drawing      ));
+    return false;
   } else if (token_equals(property, PROPERTY_HORIZONTAL)) {
     popup->horizontal = evaluate_boolean_state(get_token(&message),
                                                popup->horizontal   );

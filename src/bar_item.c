@@ -16,6 +16,7 @@ struct bar_item* bar_item_create() {
 
 void bar_item_init(struct bar_item* bar_item, struct bar_item* default_item) {
   bar_item->needs_update = true;
+  bar_item->needs_redraw_on_show = true;
   bar_item->lazy = true;
   bar_item->drawing = true;
   bar_item->updates = true;
@@ -177,6 +178,7 @@ bool bar_item_update(struct bar_item* bar_item, char* sender, bool forced, struc
 
 void bar_item_needs_update(struct bar_item* bar_item) {
   bar_item->needs_update = true;
+  bar_item->needs_redraw_on_show = true;
 }
 
 void bar_item_cancel_drag(struct bar_item* bar_item) {

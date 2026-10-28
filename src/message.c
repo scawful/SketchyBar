@@ -792,6 +792,7 @@ void handle_message_mach(struct mach_buffer* buffer) {
   animator_lock(&g_bar_manager.animator);
   bar_manager_unfreeze(&g_bar_manager);
   bar_manager_refresh(&g_bar_manager, false);
+  bar_manager_schedule_prewarm(&g_bar_manager);
   uint64_t profile_refreshed = profile ? profile_now_ns() : 0;
 
   if (rsp) fclose(rsp);

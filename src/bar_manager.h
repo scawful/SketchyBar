@@ -14,6 +14,8 @@ typedef CLOCK_CALLBACK(clock_callback);
 
 struct bar_manager {
   CFRunLoopTimerRef clock;
+  CFRunLoopTimerRef prewarm_timer;
+  CFAbsoluteTime prewarm_deadline;
 
   bool frozen;
   bool sleeps;
@@ -25,6 +27,7 @@ struct bar_manager {
   bool needs_ordering;
   bool might_need_clipping;
   bool bar_needs_update;
+  bool popup_visibility_changed;
   bool bar_needs_resize;
   bool show_in_fullscreen;
 
@@ -108,6 +111,8 @@ void bar_manager_display_moved(struct bar_manager* bar_manager, uint32_t did);
 void bar_manager_display_removed(struct bar_manager* bar_manager, uint32_t did);
 void bar_manager_display_added(struct bar_manager* bar_manager, uint32_t did);
 void bar_manager_refresh(struct bar_manager* bar_manager, bool forced);
+void bar_manager_schedule_prewarm(struct bar_manager* bar_manager);
+void bar_manager_prewarm_popups(struct bar_manager* bar_manager);
 void bar_manager_resize(struct bar_manager* bar_manager);
 
 void bar_manager_poll_active_display(struct bar_manager* bar_manager);

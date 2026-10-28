@@ -189,7 +189,12 @@ void bar_draw(struct bar* bar, bool forced) {
     }
 
     bool resized = window_apply_frame(window, forced);
-    if (!resized && !bar_item->needs_update) continue;
+    if (!resized
+        && !bar_item->needs_update
+        && !bar_item->needs_redraw_on_show) {
+      continue;
+    }
+    bar_item->needs_redraw_on_show = false;
 
     if (bar_item->update_mask & UPDATE_MOUSE_ENTERED
         || bar_item->update_mask & UPDATE_MOUSE_EXITED) {
