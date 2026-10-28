@@ -329,12 +329,14 @@ void image_destroy(struct image* image) {
 }
 
 void image_serialize(struct image* image, char* indent, FILE* rsp) {
+  char* escaped_path = escape_string(image->path);
   fprintf(rsp, "%s\"value\": \"%s\",\n"
                "%s\"drawing\": \"%s\",\n"
                "%s\"scale\": %f",
-               indent, image->path,
+               indent, escaped_path,
                indent, format_bool(image->enabled),
                indent, image->scale                );
+  if (escaped_path) free(escaped_path);
 }
 
 bool image_parse_sub_domain(struct image* image, FILE* rsp, struct token property, char* message) {

@@ -392,6 +392,7 @@ void text_serialize(struct text* text, char* indent, FILE* rsp) {
       break;
   }
 
+  char* escaped_string = escape_string(text->string);
   fprintf(rsp, "%s\"value\": \"%s\",\n"
                "%s\"drawing\": \"%s\",\n"
                "%s\"highlight\": \"%s\",\n"
@@ -405,7 +406,7 @@ void text_serialize(struct text* text, char* indent, FILE* rsp) {
                "%s\"scroll_duration\": %d,\n"
                "%s\"align\": \"%s\",\n"
                "%s\"background\": {\n",
-               indent, text->string,
+               indent, escaped_string,
                indent, format_bool(text->drawing),
                indent, format_bool(text->highlight),
                indent, text->color.hex,
@@ -417,6 +418,7 @@ void text_serialize(struct text* text, char* indent, FILE* rsp) {
                indent, text->custom_width,
                indent, text->scroll_duration,
                indent, align, indent                                        );
+  if (escaped_string) free(escaped_string);
 
   char deeper_indent[strlen(indent) + 2];
   snprintf(deeper_indent, strlen(indent) + 2, "%s\t", indent);

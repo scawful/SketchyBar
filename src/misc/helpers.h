@@ -83,19 +83,31 @@ static inline char* format_bool(bool b) {
 static inline char* escape_string(char* string) {
   if (!string) return NULL;
   int len = strlen(string);
-  char* buffer = malloc(2*len + 1);
+  char* buffer = malloc(6*len + 1);
   int cursor = 0;
   for (int i = 0; i < len; i++) {
-    if (string[i] == '"') {
+    unsigned char c = string[i];
+    if (c == '"' || c == '\\') {
       buffer[cursor++] = '\\';
-      buffer[cursor++] = '"';
+      buffer[cursor++] = c;
     }
-    else if (string[i] == '\n') {
+    else if (c == '\n') {
       buffer[cursor++] = '\\';
       buffer[cursor++] = 'n';
     }
+    else if (c == '\t') {
+      buffer[cursor++] = '\\';
+      buffer[cursor++] = 't';
+    }
+    else if (c == '\r') {
+      buffer[cursor++] = '\\';
+      buffer[cursor++] = 'r';
+    }
+    else if (c < 0x20) {
+      cursor += snprintf(buffer + cursor, 7, "\\u%04x", c);
+    }
     else {
-      buffer[cursor++] = string[i];
+      buffer[cursor++] = c;
     }
   }
   buffer[cursor] = '\0';
