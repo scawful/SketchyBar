@@ -12,3 +12,4 @@ CMakeFiles/
 cmake_install.cmake
 compile_commands.json
 bench/capture_popup
+__pycache__/
