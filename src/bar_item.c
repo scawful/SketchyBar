@@ -1,4 +1,5 @@
 #include "bar_item.h"
+#include "profile.h"
 #include "bar_manager.h"
 #include "event.h"
 #include "volume.h"
@@ -724,7 +725,27 @@ void bar_item_clip_bar(struct bar_item* bar_item, int offset, struct bar* bar) {
   background_clip_bar(&bar_item->label.background, offset, bar);
 }
 
+// A resized window flushes its surface after the shape change lands, so the
+// caller only flushes here when the frame did not change.
+void bar_item_render(struct bar_item* bar_item, struct window* window, bool flush) {
+  CGContextRef context = window->surface->context;
+  uint64_t start = profile_enabled() ? profile_now_ns() : 0;
+  CGContextClearRect(context, window->frame);
+  uint64_t cleared = start ? profile_now_ns() : 0;
+  bar_item_draw(bar_item, context);
+  uint64_t painted = start ? profile_now_ns() : 0;
+  CGContextFlush(context);
+  if (flush) window_flush(window);
+  if (start) {
+    uint64_t flushed = profile_now_ns();
+    g_profile_clear_ns += cleared - start;
+    g_profile_paint_ns += painted - cleared;
+    g_profile_flush_ns += flushed - painted;
+  }
+}
+
 void bar_item_draw(struct bar_item* bar_item, CGContextRef context) {
+  g_profile_item_draws++;
   background_draw(&bar_item->background, context);
   if (bar_item->type == BAR_COMPONENT_GROUP) return;
 

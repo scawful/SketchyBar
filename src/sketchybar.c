@@ -43,6 +43,12 @@ CGError (* SBSLSTransactionAddPostDecodeAction)(CFTypeRef, void (^)()) = NULL;
 
 int g_connection;
 CFTypeRef g_transaction;
+uint32_t g_profile_item_draws;
+uint32_t g_profile_window_creates;
+uint32_t g_profile_window_closes;
+uint64_t g_profile_clear_ns;
+uint64_t g_profile_paint_ns;
+uint64_t g_profile_flush_ns;
 int g_space_management_mode;
 
 struct bar_manager g_bar_manager;

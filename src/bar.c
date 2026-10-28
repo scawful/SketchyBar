@@ -196,10 +196,7 @@ void bar_draw(struct bar* bar, bool forced) {
       window_assign_mouse_tracking_area(window, window->frame);
     }
 
-    CGContextClearRect(window->surface->context, window->frame);
-    bar_item_draw(bar_item, window->surface->context);
-    CGContextFlush(window->surface->context);
-    if (!resized) window_flush(window);
+    bar_item_render(bar_item, window, !resized);
   }
 
   if (g_bar_manager.bar_needs_update) {

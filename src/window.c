@@ -1,4 +1,5 @@
 #include "window.h"
+#include "profile.h"
 #include "bar_manager.h"
 #include "misc/helpers.h"
 #include "surface.h"
@@ -51,6 +52,7 @@ static void window_clear_background(struct window* window) {
 void window_open(struct window* window, CGRect frame) {
   uint64_t set_tags = kCGSExposeFadeTagBit | kCGSPreventsActivationTagBit;
   uint64_t clear_tags = 0;
+  g_profile_window_creates++;
 
   window->origin = frame.origin;
   window->frame.origin = CGPointZero;
@@ -276,6 +278,7 @@ void window_send_to_space(struct window* window, uint64_t dsid) {
 
 void window_close(struct window* window) {
   if (!window->id) return;
+  g_profile_window_closes++;
 
   SLSRemoveFromOrderingGroup(g_connection, window->id);
   SLSOrderWindow(g_connection, window->id, 0, 0);
